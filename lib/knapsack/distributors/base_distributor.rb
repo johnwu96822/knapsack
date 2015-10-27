@@ -37,7 +37,7 @@ module Knapsack
       end
 
       def all_tests
-        @all_tests ||= Dir[test_file_pattern].sort
+        @all_tests ||= test_file_pattern.split(" ").sort
       end
 
       protected
