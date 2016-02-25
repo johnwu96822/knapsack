@@ -15,7 +15,7 @@ module Knapsack
         end
 
         def test_file_pattern
-          ENV['KNAPSACK_TEST_FILE_PATTERN'] || File.read('knapsack_all_tests_file_names')
+          ENV['KNAPSACK_TEST_FILE_PATTERN'] || File.read('knapsack_all_tests_file_names') if File.exist?('knapsack_all_tests_file_names')
         end
 
         private
