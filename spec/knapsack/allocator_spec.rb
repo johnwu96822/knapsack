@@ -53,4 +53,154 @@ describe Knapsack::Allocator do
 
     it { should eql 'test_dir/' }
   end
+
+  describe '#split_tests' do
+    let(:report_tests) { ['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'] }
+    let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb'] }
+
+    context 'with splitting number less than 2' do
+      it 'returns the original list wrapped in an array' do
+        slices = allocator.split_tests(1)
+        expect(slices.length).to eq(1)
+        expect(slices[0]).to eq(allocator.node_tests)
+      end
+    end
+
+    context 'with total number of files less than PARALLEL_THRESHOLD' do
+      let(:report_tests) { ['a_spec.rb'] }
+
+      it 'returns the original list wrapped in an array' do
+        slices = allocator.split_tests(3)
+        expect(slices.length).to eq(1)
+        expect(slices[0]).to eq(allocator.node_tests)
+      end
+    end
+
+    context 'with splitting number greater or equal to the number of files' do
+      it 'returns an array with evenly distributed file slices, each with at least 2 files' do
+        slices = allocator.split_tests(6)
+        expect(slices.length).to eq(3)
+        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
+        expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
+        expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
+
+        slices = allocator.split_tests(8)
+        expect(slices.length).to eq(3)
+        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
+        expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
+        expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
+      end
+    end
+
+    context 'with splitting number less than the number of files' do
+      it 'evenly distributes the number of files for each slice' do
+        slices = allocator.split_tests(2)
+        expect(slices.length).to eq(2)
+        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb', 'c_spec.rb'])
+        expect(slices[1]).to eq(['d_spec.rb', 'e_spec.rb', 'f_spec.rb'])
+
+        slices = allocator.split_tests(3)
+        expect(slices.length).to eq(3)
+        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
+        expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
+        expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
+      end
+
+      context 'and remaining files after even split' do
+        let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb', 'g_spec.rb'] }
+
+        it 'evenly distributes remaining files starting from the beginning slice' do
+          slices = allocator.split_tests(4)
+          expect(slices.length).to eq(3)
+          expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb', 'c_spec.rb'])
+          expect(slices[1]).to eq(['d_spec.rb', 'e_spec.rb'])
+          expect(slices[2]).to eq(['f_spec.rb', 'g_spec.rb'])
+
+          slices = allocator.split_tests(2)
+          expect(slices.length).to eq(2)
+          expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'])
+          expect(slices[1]).to eq(['e_spec.rb', 'f_spec.rb', 'g_spec.rb'])
+        end
+      end
+
+      context 'and larger number of files' do
+        let(:leftover_tests) do
+          tests = []
+          96.times{|i| tests << "#{i}_spec.rb" }
+          tests
+        end
+
+        it 'evenly distributes remaining files starting from the beginning slice' do
+          slices = allocator.split_tests(5)
+          expect(slices.length).to eq(5)
+          slices.each{ |slice| expect(slice.length).to eq(20) }
+
+          slices = allocator.split_tests(6)
+          expect(slices.length).to eq(6)
+          expect(slices[0].length).to eq(17)
+          expect(slices[1].length).to eq(17)
+          expect(slices[2].length).to eq(17)
+          expect(slices[3].length).to eq(17)
+          expect(slices[4].length).to eq(16)
+          expect(slices[5].length).to eq(16)
+
+          slices = allocator.split_tests(51)
+          expect(slices.length).to eq(50)
+          slices.each do |slice|
+            expect(slice.length).to eq(2)
+          end
+        end
+      end
+    end
+  end
+
+  describe '#determine_no_of_processes' do
+    context 'with splitting number less than 2' do
+      it 'returns the original list wrapped in an array' do
+        data = [
+          # [file size, no of processes, expected result]
+          [100, 2, 2],
+          [99, 2, 2],
+
+          [5, 10, 2],
+          [4, 10, 2],
+          [3, 10, 1],
+
+          [5, 2, 2],
+          [4, 2, 2],
+          [3, 2, 1],
+
+          [5, 3, 2],
+          [4, 3, 2],
+          [3, 3, 1],
+
+          [10, 4, 4],
+          [9, 4, 4],
+          [8, 4, 4],
+          [7, 4, 3],
+          [6, 4, 3],
+          [5, 4, 2],
+          [4, 4, 2],
+          [3, 4, 1],
+          [2, 4, 1],
+          [1, 4, 1],
+
+          [10, 8, 5],
+          [9, 8, 4],
+          [8, 8, 4],
+          [7, 8, 3],
+          [6, 8, 3],
+          [5, 8, 2],
+          [4, 8, 2],
+          [3, 8, 1],
+          [2, 8, 1],
+          [1, 8, 1]
+        ]
+
+        data.each do |d|
+          expect(allocator.determine_no_of_processes(d[0], d[1])).to eq(d[2])
+        end
+      end
+    end
+  end
 end
