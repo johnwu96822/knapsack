@@ -53,4 +53,100 @@ describe Knapsack::Allocator do
 
     it { should eql 'test_dir/' }
   end
+
+  describe '#split_tests' do
+    let(:report_tests) { ['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'] }
+    let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb'] }
+
+    context 'with splitting number less than 2' do
+      it 'returns the original list wrapped in an array' do
+        slices = allocator.split_tests(1)
+        expect(slices.length).to eq(1)
+        expect(slices[0]).to eq(allocator.node_tests)
+      end
+    end
+
+    context 'with total number of files less than 5' do
+      let(:report_tests) { ['a_spec.rb', 'b_spec.rb'] }
+
+      it 'returns the original list wrapped in an array' do
+        slices = allocator.split_tests(3)
+        expect(slices.length).to eq(1)
+        expect(slices[0]).to eq(allocator.node_tests)
+      end
+    end
+
+    context 'with splitting number greater or equal to the number of files' do
+      it 'returns an array with each element being one-element array with one file' do
+        slices = allocator.split_tests(6)
+        expect(slices.length).to eq(6)
+        slices.each{ |slice| expect(slice.length).to eq(1) }
+      end
+
+      it 'returns an array with each element being one-element array with one file' do
+        slices = allocator.split_tests(8)
+        expect(slices.length).to eq(6)
+        slices.each{ |slice| expect(slice.length).to eq(1) }
+      end
+    end
+
+    context 'with splitting number less than the number of files' do
+      it 'evenly distributes the number of files for each slice' do
+        slices = allocator.split_tests(2)
+        expect(slices.length).to eq(2)
+        slices.each{ |slice| expect(slice.length).to eq(3) }
+
+        slices = allocator.split_tests(3)
+        expect(slices.length).to eq(3)
+        slices.each{ |slice| expect(slice.length).to eq(2) }
+      end
+
+      context 'and remaining files after even split' do
+        let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb', 'g_spec.rb'] }
+
+        it 'evenly distributes remaining files starting from the beginning slice' do
+          slices = allocator.split_tests(4)
+          expect(slices.length).to eq(4)
+          puts slices.inspect
+          expect(slices[0].length).to eq(2)
+          expect(slices[1].length).to eq(2)
+          expect(slices[2].length).to eq(2)
+          expect(slices[3].length).to eq(1)
+        end
+      end
+
+      context 'and larger number of files' do
+        let(:leftover_tests) do
+          tests = []
+          96.times{|i| tests << "#{i}_spec.rb" }
+          tests
+        end
+
+        it 'evenly distributes remaining files starting from the beginning slice' do
+          slices = allocator.split_tests(5)
+          expect(slices.length).to eq(5)
+          slices.each{ |slice| expect(slice.length).to eq(20) }
+
+          slices = allocator.split_tests(6)
+          expect(slices.length).to eq(6)
+          expect(slices[0].length).to eq(17)
+          expect(slices[1].length).to eq(17)
+          expect(slices[2].length).to eq(17)
+          expect(slices[3].length).to eq(17)
+          expect(slices[4].length).to eq(16)
+          expect(slices[5].length).to eq(16)
+
+          slices = allocator.split_tests(51)
+          expect(slices.length).to eq(51)
+          slices.each_with_index do |slice, index|
+            if index < 49
+              expect(slice.length).to eq(2)
+            else
+              expect(slice.length).to eq(1)
+            end
+          end
+        end
+      end
+    end
+  end
 end
