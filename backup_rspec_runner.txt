@@ -1,0 +1,524 @@
+module Knapsack
+  module Runners
+    class RSpecRunner
+      def self.run(args)
+        allocator = Knapsack::AllocatorBuilder.new(Knapsack::Adapters::RspecAdapter).allocator
+
+        puts
+        puts 'Report specs:'
+        puts allocator.report_node_tests
+        puts
+        puts 'Leftover specs:'
+        puts allocator.leftover_node_tests
+        puts
+
+        num_agents = (ENV['NUM_AGENTS_PER_INSTANCE'] || 2).to_i
+        num = (ncpu.to_f / (num_agents == 0 ? 2 : num_agents)).ceil
+        # if ENV['TEAMCITY_BUILDCONF_NAME'] == 'RunChunk002'
+        #   num = 2
+        # else
+        #   num = 2
+        # end
+        if num > 1
+          # test_slices = allocator.split_tests(num)
+
+          test_files = Dir['spec/features/accounts/*.{feature}'].shuffle
+          puts "Number of feature test files: #{test_files.length}"
+          test_slices = split_files(test_files, num)
+
+          if test_slices.length > 1
+            begin
+              puts "Tests will be parallelized into #{test_slices.length} processes"
+              Parallelizer.run(test_slices)
+              exit(0)
+            rescue => e
+              puts e.message
+              puts e.backtrace.join("\n\t")
+              exit(1)
+            end
+          end
+        end
+        if allocator.stringify_node_tests.empty?
+          cmd = 'true'
+          puts 'No tests to run, check knapsack_all_tests_file_names'
+        else
+          # files = allocator.stringify_node_tests
+          files = Dir['spec/features/accounts/*.{feature}'].shuffle
+          puts "Number of feature test files: #{files.length}"
+          files = files.join(" ")
+          cmd = %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{files}]
+        end
+        system(cmd)
+        exit($?.exitstatus)
+      end
+
+      def self.ncpu
+        #sysctl for OSX, nproc for linux
+        RUBY_PLATFORM.include?('darwin') ? `sysctl -n hw.ncpu`.to_i : `nproc`.to_i
+      rescue Errno::ENOENT
+        1
+      end
+
+      def self.split_files(files, num)
+        if num > files.length
+          files_sliced = files.each_slice(1).to_a
+          num = files_sliced.length
+        else
+          # Slice the test files to evenly distribute amongst forks
+          files_sliced = files.each_slice(files.length / num).to_a
+          # Even spread the remaining files
+          if files_sliced.length == num + 1
+            files_sliced[num].each_with_index do |arr, index|
+              files_sliced[index] << arr
+            end
+          end
+        end
+        return files_sliced[0..num - 1]
+      end
+    end
+
+    class Parallelizer
+      class << self
+        def run(test_slices)
+          forks = test_slices.length
+
+          # The first process will use the database name in the database.yml file.
+          # Other processes will use the database name plus this identifier plus
+          # plus an index, starting with 1, 2, 3...
+          identifier = "_#{rand(1000000)}_"
+
+          db_config = duplicate_dbs(forks, identifier)
+          run_tests(test_slices, identifier, db_config)
+
+          # ports = start_docker_dbs(forks, identifier)
+          # # Wait for services in the docker container to start
+          # sleep(45)
+          # run_docker_tests(test_slices, identifier, ports)
+        end
+
+        private
+
+        def db_options(db_config)
+          "-u #{db_config['username']} #{db_config['password'].blank? ? '' : '-p'+db_config['password']} #{db_config['host'].blank? ? '' : '-h'+db_config['host']} #{db_config['port'].blank? ? '' : '-P'+db_config['port']} #{db_config['socket'].blank? ? '' : '--socket='+db_config['socket']}"
+        end
+
+        def duplicate_dbs(num, identifier)
+          db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
+          return db_config if num <= 1
+
+          filename = "tmp/testdb.sql"
+          options = db_options(db_config)
+          puts "mysqldump #{options} #{db_config['database']} > #{filename}"
+          system("mysqldump #{options} #{db_config['database']} > #{filename}")
+
+          # Create test databases except for the first fork. Let the first fork use
+          # the main database (without the added identifier)
+          (num - 1).times do |i|
+            db_name = "#{db_config['database']}#{identifier}#{i + 1}"
+            puts "mysqladmin #{options} create #{db_name}"
+            system("mysqladmin #{options} create #{db_name}")
+            puts "mysql #{options} #{db_name} < #{filename}"
+            system("time mysql #{options} #{db_name} < #{filename}")
+          end
+          db_config
+        end
+
+        def run_tests(test_slices, identifier, db_config)
+          forks = test_slices.length
+          pids = []
+          time = Time.now.to_i
+          file_list = []
+          forks.times do |i|
+            pids << fork do
+              index = i
+              sleep(index * 5)
+              tc_parallel_id = "#{identifier}#{index}"
+              log_file = "knapsack#{time}_#{index}.log"
+              file_list << log_file
+              puts "USING_CAPYBARA=true #{'TC_PARALLEL_ID='+tc_parallel_id if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{test_slices[index].join(' ')} > #{log_file}"
+              `USING_CAPYBARA=true #{'TC_PARALLEL_ID='+tc_parallel_id if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{test_slices[index].join(' ')} > #{log_file}`
+              puts '******************'
+              puts "Parallel testing #{index} finished"
+              system("cat #{log_file}")
+
+              # Force the fork to end without running at_exit bindings
+              Kernel.exit!
+            end
+          end
+          # Wait for the forks to finish the tests
+          pids.each {|pid| Process.wait(pid)}
+        rescue => e
+          puts e.message
+          puts e.backtrace.join("\n\t")
+        ensure
+          combine_failures(forks, identifier)
+          clean_up_dbs(forks, identifier, db_config)
+        end
+
+        def clean_up_dbs(num, identifier, db_config)
+          (num - 1).times do |i|
+            db_name = "#{db_config['database']}#{identifier}#{i + 1}"
+            begin
+              puts "mysqladmin #{db_options(db_config)} -f drop #{db_name}"
+              system("mysqladmin #{db_options(db_config)} -f drop #{db_name}")
+            rescue => e
+              puts e.message
+              puts e.backtrace.join("\n\t")
+            end
+          end
+        end
+
+        def combine_failures(num, identifier)
+          target = 'tmp/integration.failures'
+          (num - 1).times do |i|
+            from = "tmp/integration#{identifier}#{i + 1}.failures"
+            begin
+              if File.exist?(from)
+                system("cat #{from} >> #{target}")
+                # File.delete(from)
+              end
+            rescue => e
+              puts e.message
+              puts e.backtrace.join("\n\t")
+            end
+          end
+        end
+
+
+
+        def start_docker_dbs(num, identifier)
+          ports = {}
+          # Start docker containers (serially, docker seems to have problems with concurrency)
+          num.times do |i|
+            name = identifier + i.to_s
+            # Start mysql and get the mapped port
+            `docker run -d -p 3306 -e MYSQL_ROOT_PASSWORD=password --name #{name} mysql:5.7`
+            ports[name] = `docker port #{name} 3306`.split(":").last.to_i
+          end
+          ports
+        end
+
+        def run_docker_tests(test_slices, identifier, ports)
+          forks = test_slices.length
+          pids = []
+          time = Time.now.to_i
+          file_list = []
+          forks.times do |i|
+            pids << fork do
+              sleep(i * 5)
+              port = ports[identifier + i.to_s]
+              mysql_opts = "-h127.0.0.1 -uroot -ppassword --port=#{port}"
+              puts "mysqladmin #{mysql_opts} create coupa_test"
+              `mysqladmin #{mysql_opts} create coupa_test`
+
+              puts "time mysql #{mysql_opts} coupa_test < testdb.sql"
+              `time mysql #{mysql_opts} coupa_test < testdb.sql`
+
+              file_list << "knapsack#{time}_#{i}.log"
+              puts "USING_CAPYBARA=true MYSQL_PORT=#{port} bundle exec rspec -r turnip/rspec -r turnip/capybara #{test_slices[i].join(' ')} > knapsack#{time}_#{i}.log"
+              `USING_CAPYBARA=true MYSQL_PORT=#{port} bundle exec rspec -r turnip/rspec -r turnip/capybara #{test_slices[i].join(' ')} > knapsack#{time}_#{i}.log`
+              puts '******************'
+              puts "Parallel testing #{i} finished"
+
+              # Force the fork to end without running at_exit bindings
+              Kernel.exit!
+            end
+          end
+          # Wait for the forks to finish the tests
+          pids.each {|pid| Process.wait(pid)}
+        rescue => e
+          puts e.message
+          puts e.backtrace.join("\n\t")
+        ensure
+          # Knapsack::LogCombiner.output(file_list)
+          puts "Stopping docker containers"
+          clean_up_docker(forks, identifier)
+        end
+
+        def clean_up_docker(num, identifier)
+          dbs = ''
+          num.times {|i| dbs += dbs + "#{identifier}#{i} " }
+          `docker rm -f #{dbs}`
+        ensure
+          # `docker volume prune -f`
+
+          # For older docker client without the 'prune' command.
+          `docker volume ls -qf dangling=true | xargs docker volume rm`
+        end
+      end
+    end
+
+  end
+end
+module Knapsack
+  class LogCombiner
+    class << self
+      POINT_REGEXP = /^  \d+\)/
+      SUB_POINT_REGEXP = /^     \d+\.\d+\)/
+
+      def output(file_names)
+        test_logs = []
+        file_names.each do |file_name|
+          begin
+            tl = TestLog.new
+            tl.parse_file(file_name)
+            test_logs << tl
+          rescue => e
+            puts "Error opening log file: #{file_name}, error: #{e}"
+          end
+        end
+
+        output_logs(test_logs)
+        output_log_pendings(test_logs)
+        output_pendings(test_logs)
+        output_failures(test_logs)
+        output_summary(test_logs)
+        output_failed_examples(test_logs)
+      end
+
+      def output_logs(test_logs)
+        n_examples = 0
+        test_logs.each_with_index do |tl, i|
+          if i == 0
+            n_examples = tl.n_examples
+            puts tl.sect_log.rstrip
+          else
+            lines = tl.sect_log.split("\n")
+            # The first two lines are repetitive for each log file
+            lines[2..-1].each do |line|
+              if line =~ /  Scenario 1:\d+ --/
+                n_examples += 1
+                line.sub!(/Scenario 1:\d+/, "Scenario 1:#{n_examples}")
+              end
+              puts line
+            end if lines.length > 2
+          end
+        end
+      end
+
+      def output_log_pendings(test_logs)
+        puts test_logs.collect{|tl| tl.sect_log_pending}.join('')
+        puts
+      end
+
+      def output_pendings(test_logs)
+        puts "Pending: (Failures listed here are expected and do not affect your suite's status)"
+        puts
+        counter = 1
+        test_logs.each do |tl|
+          tl.sect_pending.each_line do |line|
+            if line =~ POINT_REGEXP
+              line.sub!(POINT_REGEXP, "  #{counter})")
+              counter += 1
+            end
+            puts line
+          end
+        end
+      end
+
+      def output_failures(test_logs)
+        puts "Failures:"
+        counter = 0
+        sub_counter = 1
+        test_logs.each do |tl|
+          tl.sect_failures.each_line do |line|
+            if line =~ POINT_REGEXP
+              counter += 1
+              line.sub!(POINT_REGEXP, "  #{counter})")
+              sub_counter = 1
+            elsif line =~ SUB_POINT_REGEXP
+              line.sub!(SUB_POINT_REGEXP, "     #{counter}.#{sub_counter})")
+              sub_counter += 1
+            end
+            puts line
+          end
+        end
+      end
+
+      def output_summary(test_logs)
+        finished_time = file_load_time = n_examples = n_failures = n_pending = 0
+        test_logs.each do |tl|
+          finished_time += tl.finished_time
+          file_load_time += tl.file_load_time
+          n_examples += tl.n_examples
+          n_failures += tl.n_failures
+          n_pending += tl.n_pending
+        end
+        puts finished_summary(finished_time, file_load_time, n_examples, n_failures, n_pending)
+        puts
+      end
+
+      def output_failed_examples(test_logs)
+        puts "Failed examples:"
+        puts
+        puts test_logs.collect{|tl| tl.sect_failed_examples}.join('')
+      end
+
+      def finished_summary(finished_time, file_load_time, n_examples, n_failures, n_pending)
+        summary = "Finished in #{time_string(finished_time)} (files took #{time_string(file_load_time)} to load)\n" +
+          "#{pluralize_with_s(n_examples, 'example')}, #{pluralize_with_s(n_failures, 'failure')}"
+        summary += ", #{n_pending.to_s} pending" if n_pending > 0
+        summary
+      end
+
+      def time_string(sec)
+        minute_string(sec) + second_string(sec)
+      end
+
+      def minute_string(sec)
+        min = (sec / 60).to_i
+        min > 0 ? pluralize_with_s(min, 'minute') + ' ' : ''
+      end
+
+      def second_string(sec)
+        secs = sec % 60
+        pluralize_with_s(secs, 'second')
+      end
+
+      def pluralize_with_s(num, unit)
+        "#{num} #{unit}#{'s' if num > 1}"
+      end
+    end
+  end
+
+  class TestLog
+    attr_accessor :sect_log, :sect_log_pending, :sect_pending, :sect_failures, :sect_failed_examples,
+      :finished_time, :file_load_time, :n_examples, :n_failures, :n_pending
+
+    def initialize
+      @sect_log = ''
+      @sect_log_pending = ''
+      @sect_pending = ''
+      @sect_failures = ''
+      @sect_failed_examples = ''
+      @finished_time = @file_load_time = @n_examples = @n_failures = @n_pending = 0
+    end
+
+    def parse_file(file_name)
+      #:log, :log_pending, :pending, :failures, :finished, :failed_examples
+      progress = :log
+      File.open(file_name, "r") do |f|
+        f.each do |line|
+          progress = case progress
+          when :log
+            parse_log(line)
+          when :log_pending
+            parse_log_pending(line)
+          when :pending
+            parse_pending(line)
+          when :failures
+            parse_failures(line)
+          when :finished
+            parse_finished_2(line)
+          when :failed_examples
+            parse_failed_examples(line)
+          else
+            progress
+          end
+
+        end
+      end
+    end
+
+    def parse_log(line)
+      if line.start_with?('Pending: (')
+        :pending
+      elsif line.start_with?('Failures:')
+        :failures
+      elsif line.start_with?('Finished in ')
+        parse_finished_1(line)
+        :finished
+      elsif line =~ /- Pending test:/
+        @sect_log << line[0]
+        @sect_log_pending << line[1..-1]
+        :log_pending
+      else
+        @sect_log << line
+        :log
+      end
+    end
+
+    def parse_log_pending(line)
+      if line =~ /- Pending test:/
+        @sect_log_pending << line
+      elsif line.start_with?('Pending: (')
+        return :pending
+      end
+      :log_pending
+    end
+
+    def parse_pending(line)
+      if line.start_with?('Failures:')
+        :failures
+      elsif line.start_with?('Finished in ')
+        parse_finished_1(line)
+        :finished
+      else
+        @sect_pending << line
+        :pending
+      end
+    end
+
+    def parse_failures(line)
+      if line.start_with?('Finished in ')
+        parse_finished_1(line)
+        :finished
+      else
+        @sect_failures << line
+        :failures
+      end
+    end
+
+    def parse_finished_1(line)
+      times = line.scan(/[\d.]* minute|[\d.]* second/)
+      # Typically the finished time occupies the first two elements, and the job
+      # load time the other two
+      case times.length
+      when 2
+        # If both times only have seconds, both elements are in seconds
+        @finished_time = times[0].to_f
+        @file_load_time = times[1].to_f
+      when 3
+        # One of the times finished without minute
+        if times[0].end_with?('minute')
+          @finished_time = times[0].to_f * 60
+          if times[1].end_with?('second')
+            @finished_time += times[1].to_f
+          else
+            @file_load_time = times[1].to_f * 60
+          end
+        elsif times[0].end_with?('second')
+          @finished_time = times[0].to_f
+          @file_load_time = times[1].to_f * 60
+        end
+
+        if times[2].end_with?('minute')
+          @file_load_time = times[2].to_f * 60
+        else
+          @file_load_time += times[2].to_f
+        end
+      when 4
+        @finished_time = times[0].to_f * 60 + times[1].to_f
+        @file_load_time = times[2].to_f * 60 + times[3].to_f
+      end
+    end
+
+    def parse_finished_2(line)
+      return :failed_examples if line.start_with?('Failed examples')
+
+      nums = line.scan(/\d* example|\d* failure|\d* pending/)
+      if nums.length > 1
+        @n_examples = nums[0].to_i
+        @n_failures = nums[1].to_i
+        @n_pending = nums[2].to_i if nums.length > 2
+      end
+      :finished
+    end
+
+    def parse_failed_examples(line)
+      @sect_failed_examples << line unless line.length == 1
+      :failed_examples
+    end
+
+  end
+end
