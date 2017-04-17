@@ -24,5 +24,24 @@ module Knapsack
     def test_dir
       @report_distributor.test_file_pattern.gsub(/^(.*?)\//).first
     end
+
+    def split_tests(num)
+      return [node_tests] if num <= 1 || node_tests.length < 5
+      files = node_tests.shuffle
+      if num >= files.length
+        files_sliced = files.each_slice(1).to_a
+        num = files_sliced.length
+      else
+        # Slice the test files to evenly distribute them among "num" of slices
+        files_sliced = files.each_slice(files.length / num).to_a
+        # Even spread the remaining files if there are
+        if files_sliced.length == num + 1
+          files_sliced[num].each_with_index do |arr, index|
+            files_sliced[index] << arr
+          end
+        end
+      end
+      files_sliced[0..num - 1]
+    end
   end
 end
