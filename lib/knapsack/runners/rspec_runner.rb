@@ -74,19 +74,15 @@ module Knapsack
 
           filename = "tmp/testdb.sql"
           options = db_options(db_config)
-          puts "mysqldump #{options} #{db_config['database']} > #{filename}"
-          system("mysqldump #{options} #{db_config['database']} > #{filename}")
+          run_cmd("mysqldump #{options} #{db_config['database']} > #{filename}")
 
           # Create test databases except for the first fork. Let the first fork use
           # the main database (without the added identifier)
           (num - 1).times do |i|
             db_name = "#{db_config['database']}#{identifier}#{i + 1}"
-            puts "mysqladmin #{options} create #{db_name}"
-            system("mysqladmin #{options} create #{db_name}")
-            puts "mysql #{options} #{db_name} < #{filename}"
-            system("time mysql #{options} #{db_name} < #{filename}")
+            run_cmd("mysqladmin #{options} create #{db_name}")
+            run_cmd("mysql #{options} #{db_name} < #{filename}")
           end
-          sleep(3)
           db_config
         end
 
@@ -98,7 +94,7 @@ module Knapsack
           forks.times do |i|
             pids << fork do
               index = i
-              sleep(index * 3)
+              sleep(index * 5)
               # For processes other than the very first one, fork_identifier is used
               # as the last portion of the database name and also part of the failure
               # log file names.
@@ -107,8 +103,7 @@ module Knapsack
               # it locally, it would not overwrite the previous log files
               log_file = "knapsack#{time}_#{index}.log"
               file_list << log_file
-              puts "#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{test_slices[index].join(' ')} > #{log_file}"
-              `#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{test_slices[index].join(' ')} > #{log_file}`
+              run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{test_slices[index].join(' ')} > #{log_file}"
 
               puts '**********************************'
               puts "Parallel testing #{index} finished"
@@ -128,6 +123,11 @@ module Knapsack
           clean_up_dbs(forks, identifier, db_config)
         end
 
+        def run_cmd(cmd)
+          puts cmd
+          system(cmd)
+        end
+
         def db_options(db_config)
           "-u #{db_config['username']} #{db_config['password'].blank? ? '' : '-p'+db_config['password']} #{db_config['host'].blank? ? '' : '-h'+db_config['host']} #{db_config['port'].blank? ? '' : '-P'+db_config['port']} #{db_config['socket'].blank? ? '' : '--socket='+db_config['socket']}"
         end
@@ -136,8 +136,7 @@ module Knapsack
           (num - 1).times do |i|
             db_name = "#{db_config['database']}#{identifier}#{i + 1}"
             begin
-              puts "mysqladmin #{db_options(db_config)} -f drop #{db_name}"
-              system("mysqladmin #{db_options(db_config)} -f drop #{db_name}")
+              run_cmd("mysqladmin #{db_options(db_config)} -f drop #{db_name}")
             rescue => e
               puts e.message
               puts e.backtrace.join("\n\t")
@@ -152,7 +151,7 @@ module Knapsack
             from = "tmp/integration#{identifier}#{i + 1}.failures"
             begin
               if File.exist?(from)
-                system("cat #{from} >> #{target}")
+                run_cmd("cat #{from} >> #{target}")
                 # File.delete(from)
               end
             rescue => e
