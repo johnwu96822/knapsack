@@ -103,7 +103,7 @@ module Knapsack
               # it locally, it would not overwrite the previous log files
               log_file = "knapsack#{time}_#{index}.log"
               file_list << log_file
-              run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{test_slices[index].join(' ')} > #{log_file}"
+              run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{test_slices[index].join(' ')} > #{log_file}")
 
               puts '**********************************'
               puts "Parallel testing #{index} finished"
