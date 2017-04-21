@@ -26,23 +26,25 @@ module Knapsack
     end
 
     def split_tests(num)
-      return [node_tests] if num <= 1 || node_tests.length < 5
-      files = node_tests.shuffle
+      files = node_tests
+      return [files] if num <= 1 || files.length < 5
       if num >= files.length
         files_sliced = files.each_slice(1).to_a
         num = files_sliced.length
       else
+        files_sliced = []
         # Slice the test files to evenly distribute them among "num" of slices
-        files_sliced = files.each_slice(files.length / num).to_a
-        # Even spread the remaining files if there are
-        if files_sliced.length > num
-          index = 0
-          files_sliced[num..-1].each do |slice|
-            slice.each do |ele|
-              files_sliced[index] << ele
-              index += 1
-            end
+        size = files.length / num
+        remain = files.length % num
+        index = 0
+        num.times do |i|
+          end_index = index + size - 1
+          if remain > 0
+            end_index += 1
+            remain -= 1
           end
+          files_sliced << files[index..end_index]
+          index = end_index + 1
         end
       end
       files_sliced[0..num - 1]
