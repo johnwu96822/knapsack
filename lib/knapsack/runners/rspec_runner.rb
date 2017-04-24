@@ -102,7 +102,7 @@ module Knapsack
           forks.times do |i|
             pids << fork do
               index = i
-              sleep(index * 10)
+              sleep(index * 12)
               # For processes other than the very first one, fork_identifier is used
               # as the last portion of the database name and also part of the failure
               # log file names.
