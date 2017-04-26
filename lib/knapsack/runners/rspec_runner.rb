@@ -24,6 +24,9 @@ module Knapsack
               puts e.message
               puts e.backtrace.join("\n\t")
               exit(1)
+            ensure
+              system("cat tmp/knapsack*_*.log")
+              system("rm -f tmp/knapsack*_*.log")
             end
           end
         end

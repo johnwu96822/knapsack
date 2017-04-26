@@ -31,7 +31,7 @@ module Knapsack::Parallelizer
         fork_identifier = "#{identifier}#{index}"
         # Use time for the regular (not failure) log file names so that when running
         # it locally, it would not overwrite the previous log files
-        log_file = "knapsack#{options[:time].to_i}_#{index}.log"
+        log_file = "tmp/knapsack#{options[:time].to_i}_#{index}.log"
         run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
         puts '**********************************'
         puts "Parallel testing #{index}/#{test_slices.length} finished"
@@ -59,7 +59,6 @@ module Knapsack::Parallelizer
       end
 
       def clean_up(num, identifier, options = {})
-        output_logs(num, options[:time].to_i)
         combine_failures(num, identifier)
         clean_up_dbs(num, identifier)
       end
@@ -125,21 +124,6 @@ module Knapsack::Parallelizer
             if File.exist?(from)
               run_cmd("cat #{from} >> #{target}")
               # File.delete(from)
-            end
-          rescue => e
-            puts e.message
-            puts e.backtrace.join("\n\t")
-          end
-        end
-      end
-
-      def output_logs(num, timestamp)
-        num.times do |i|
-          log_file = "knapsack#{options[:time].to_i}_#{i}.log"
-          begin
-            if File.exist?(log_file)
-              system("cat #{log_file}")
-              system("rm #{log_file}")
             end
           rescue => e
             puts e.message
