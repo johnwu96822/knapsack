@@ -60,8 +60,6 @@ module Knapsack::Parallelizer
 
       def clean_up
         # Output the logs that were not displayed due to the rspec process getting killed
-        system("cat tmp/knapsack_*_*.log")
-
         Dir.glob("tmp/knapsack_*_*.log") do |filename|
           system("cat #{filename}")
           puts "******* END OF #{filename} ********"
