@@ -68,8 +68,8 @@ module Knapsack::Parallelizer
           values = `cat tmp/parallel_pids.txt`.strip.split(',').collect{|i| i.to_i }
           begin
             Process.kill('KILL', *values) unless values.empty?
-          rescue
-            #Ignore error here
+          rescue => e
+            puts e.message
           end
         end
 
@@ -162,7 +162,11 @@ module Knapsack::Parallelizer
         if File.exist?('tmp/parallel_pids.txt')
           values = `cat tmp/parallel_pids.txt`.strip.split(',')
           values.delete(pid.to_s)
-          system("cat #{values.join(',')} > tmp/parallel_pids.txt")
+          if values.empty?
+            system("rm -f tmp/parallel_pids.txt")
+          else
+            system("cat #{values.join(',')} > tmp/parallel_pids.txt")
+          end
         end
       end
 
