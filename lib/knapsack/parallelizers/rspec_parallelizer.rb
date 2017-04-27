@@ -43,9 +43,9 @@ module Knapsack::Parallelizer
       # Duplicating test databases for forks other than the first one, since the first fork uses
       # the main database (the one we are duplicating from, without the added identifier)
       def setup(num, identifier, options = {})
-        db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
         # Generate the integration db script that will be reloaded before every test
         run_cmd("RAILS_ENV=test bundle exec rake integration_test:setup_db")
+        db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
         return db_config if num <= 1
 
         filename = "tmp/testdb.sql"
