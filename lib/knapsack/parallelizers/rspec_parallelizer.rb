@@ -34,8 +34,7 @@ module Knapsack::Parallelizer
         # it locally, it would not overwrite the previous log files
         log_file = "tmp/knapsack_#{options[:time].to_i}_#{index}.log"
         run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
-        puts '**********************************'
-        puts "Parallel testing #{index}/#{test_slices.length} finished"
+        `echo "******* Parallel testing #{index}/#{test_slices.length} finished ********" >> #{log_file}`
         system("cat #{log_file}")
         system("rm #{log_file}")
       end
@@ -63,12 +62,14 @@ module Knapsack::Parallelizer
         # Output the logs that were not displayed due to the rspec process getting killed
         system("cat tmp/knapsack_*_*.log")
 
+        run_cmd("cat tmp/parallel_identifier.txt")
         if File.exist?('tmp/parallel_identifier.txt')
           puts 'Cleaning up the duplicated database(s)'
           values = `cat tmp/parallel_identifier.txt`.strip.split(',')
           clean_up_dbs(values[0].to_i, values[1])
         end
 
+        run_cmd("cat tmp/parallel_pids.txt")
         if File.exist?('tmp/parallel_pids.txt')
           puts 'Cleaning up the forked processes'
           values = `cat tmp/parallel_pids.txt`.strip.split(',').collect{|i| i.to_i }
