@@ -66,7 +66,11 @@ module Knapsack::Parallelizer
         if File.exist?('tmp/parallel_pids.txt')
           puts 'Cleaning up the forked processes'
           values = `cat tmp/parallel_pids.txt`.strip.split(',').collect{|i| i.to_i }
-          Process.kill('KILL', *values) unless values.empty?
+          begin
+            Process.kill('KILL', *values) unless values.empty?
+          rescue
+            #Ignore error here
+          end
         end
 
         run_cmd("cat tmp/parallel_identifier.txt")
