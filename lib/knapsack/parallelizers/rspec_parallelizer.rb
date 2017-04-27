@@ -165,7 +165,7 @@ module Knapsack::Parallelizer
           if values.empty?
             system("rm -f tmp/parallel_pids.txt")
           else
-            system("cat #{values.join(',')} > tmp/parallel_pids.txt")
+            system("echo #{values.join(',')} > tmp/parallel_pids.txt")
           end
         end
       end
