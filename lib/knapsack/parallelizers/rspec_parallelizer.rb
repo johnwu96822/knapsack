@@ -62,22 +62,28 @@ module Knapsack::Parallelizer
         # Output the logs that were not displayed due to the rspec process getting killed
         system("cat tmp/knapsack_*_*.log")
 
-        run_cmd("cat tmp/parallel_pids.txt")
+        puts '************* Clean up **************'
+
         if File.exist?('tmp/parallel_pids.txt')
-          puts 'Cleaning up the forked processes'
-          values = `cat tmp/parallel_pids.txt`.strip.split(',').collect{|i| i.to_i }
-          begin
-            Process.kill('KILL', *values) unless values.empty?
-          rescue => e
-            puts e.message
+          data = `cat tmp/parallel_pids.txt`
+          unless data.empty?
+            puts "Cleaning up the forked processes: #{data}"
+            pids = data.strip.split(',').collect{|i| i.to_i }
+            begin
+              Process.kill('KILL', *pids) unless pids.empty?
+            rescue => e
+              puts e.message
+            end
           end
         end
 
-        run_cmd("cat tmp/parallel_identifier.txt")
         if File.exist?('tmp/parallel_identifier.txt')
-          puts 'Cleaning up the duplicated database(s)'
-          values = `cat tmp/parallel_identifier.txt`.strip.split(',')
-          clean_up_dbs(values[0].to_i, values[1])
+          data = `cat tmp/parallel_identifier.txt`
+          unless data.empty?
+            puts "Cleaning up the duplicated database(s): #{data}"
+            values = data.strip.split(',')
+            clean_up_dbs(values[0].to_i, values[1])
+          end
         end
       end
 
