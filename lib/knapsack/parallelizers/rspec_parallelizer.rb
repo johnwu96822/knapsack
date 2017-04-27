@@ -11,16 +11,17 @@ module Knapsack::Parallelizer
         # Other processes will use the database name appended with this identifier plus
         # an index, starting with 1, 2, 3...
         identifier = "_#{Process.pid}_"
-
         forks = test_slices.length
-        setup(forks, identifier, options)
+        # This file will be read and used in clean_up
+        system("echo #{forks},#{identifier} > tmp/parallel_identifier.txt")
 
+        setup(forks, identifier, options)
         run_tests(test_slices, identifier, options)
       rescue => e
         puts e.message
         puts e.backtrace.join("\n\t")
       ensure
-        clean_up(forks, identifier, options)
+        combine_failures(forks, identifier)
       end
 
       def test(test_slices, index, identifier, options)
@@ -31,7 +32,7 @@ module Knapsack::Parallelizer
         fork_identifier = "#{identifier}#{index}"
         # Use time for the regular (not failure) log file names so that when running
         # it locally, it would not overwrite the previous log files
-        log_file = "tmp/knapsack#{options[:time].to_i}_#{index}.log"
+        log_file = "tmp/knapsack_#{options[:time].to_i}_#{index}.log"
         run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
         puts '**********************************'
         puts "Parallel testing #{index}/#{test_slices.length} finished"
@@ -58,9 +59,21 @@ module Knapsack::Parallelizer
         end
       end
 
-      def clean_up(num, identifier, options = {})
-        combine_failures(num, identifier)
-        clean_up_dbs(num, identifier)
+      def clean_up
+        # Output the logs that were not displayed due to the rspec process getting killed
+        system("cat tmp/knapsack_*_*.log")
+
+        if File.exist?('tmp/parallel_identifier.txt')
+          puts 'Cleaning up the duplicated database(s)'
+          values = `cat tmp/parallel_identifier.txt`.strip.split(',')
+          clean_up_dbs(values[0].to_i, values[1])
+        end
+
+        if File.exist?('tmp/parallel_pids.txt')
+          puts 'Cleaning up the forked processes'
+          values = `cat tmp/parallel_pids.txt`.strip.split(',').collect{|i| i.to_i }
+          Process.kill('KILL', *values)
+        end
       end
 
       protected
@@ -76,11 +89,16 @@ module Knapsack::Parallelizer
           pids = []
           forks.times do |i|
             pids << fork do
-              test(test_slices, i, identifier, options)
-              # Force the fork to end without running at_exit bindings
-              Kernel.exit!
+              begin
+                test(test_slices, i, identifier, options)
+              ensure
+                remove_pid(Process.pid)
+                # Force the fork to end without running at_exit bindings
+                Kernel.exit!
+              end
             end
           end
+          system("echo #{pids.join(',')} > tmp/parallel_pids.txt")
           # Wait for the forks to finish the tests
           pids.each {|pid| Process.wait(pid)}
         else
@@ -99,8 +117,10 @@ module Knapsack::Parallelizer
         "-u #{db_config['username']} #{db_config['password'].blank? ? '' : '-p'+db_config['password']} #{db_config['host'].blank? ? '' : '-h'+db_config['host']} #{db_config['port'].blank? ? '' : '-P'+db_config['port']} #{db_config['socket'].blank? ? '' : '--socket='+db_config['socket']}"
       end
 
-      # Clean up the dupli
+      # Clean up the duplicated databases but not the main one, which will be dropped
+      # in a later step.
       def clean_up_dbs(num, identifier)
+        return if num <= 1
         db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
         (num - 1).times do |i|
           db_name = "#{db_config['database']}#{identifier}#{i + 1}"
@@ -116,6 +136,7 @@ module Knapsack::Parallelizer
       # Combines the failure files into the main one, which will then be used
       # by the rerun step.
       def combine_failures(num, identifier)
+        return if num <= 1
         target = 'tmp/integration.failures'
         (num - 1).times do |i|
           # Files start from 1, not 0. Hence the i + 1
@@ -129,6 +150,14 @@ module Knapsack::Parallelizer
             puts e.message
             puts e.backtrace.join("\n\t")
           end
+        end
+      end
+
+      def remove_pid(pid)
+        if File.exist?('tmp/parallel_pids.txt')
+          values = `cat tmp/parallel_pids.txt`.strip.split(',')
+          values.delete(pid.to_s)
+          system("cat #{values.join(',')} > tmp/parallel_pids.txt")
         end
       end
 
