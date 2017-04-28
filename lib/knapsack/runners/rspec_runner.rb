@@ -13,7 +13,7 @@ module Knapsack
         puts
 
         num = num_of_forks
-        if num > 1
+        if num > 1 && !skip_parallel?
           test_slices = allocator.split_tests(num)
           if test_slices.length > 1
             begin
@@ -53,6 +53,10 @@ module Knapsack
         default_num = 2
         num_agents = (ENV['NUM_AGENTS_PER_INSTANCE'] || default_num).to_i
         num = (ncpu.to_f / (num_agents == 0 ? default_num : num_agents)).ceil
+      end
+
+      def self.skip_parallel?
+        ENV['JS_DRIVER'] == 'selenium-ie-remote'
       end
     end
   end

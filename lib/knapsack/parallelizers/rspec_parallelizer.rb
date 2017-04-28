@@ -59,15 +59,6 @@ module Knapsack::Parallelizer
       end
 
       def clean_up
-        # Output the logs that were not displayed due to the rspec process getting killed
-        Dir.glob("tmp/knapsack_*_*.log") do |filename|
-          system("cat #{filename}")
-          puts "******* END OF #{filename} ********"
-          puts
-        end
-
-        puts '************* Clean up **************'
-
         if File.exist?('tmp/parallel_pids.txt')
           data = `cat tmp/parallel_pids.txt`
           unless data.empty?
@@ -88,6 +79,15 @@ module Knapsack::Parallelizer
             values = data.strip.split(',')
             clean_up_dbs(values[0].to_i, values[1])
           end
+        end
+
+        puts '************* Unfinished Logs **************'
+
+        # Output the logs that were not displayed due to the rspec process getting killed
+        Dir.glob("tmp/knapsack_*_*.log") do |filename|
+          system("cat #{filename}")
+          puts "******* END OF #{filename} ********"
+          puts
         end
       end
 
