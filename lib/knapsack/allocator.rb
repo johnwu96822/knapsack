@@ -2,6 +2,7 @@ module Knapsack
   class Allocator
     # The maximum number of files allowed to run without parallelization
     PARALLEL_THRESHOLD = 3
+    MINIMUM_PER_PROCESS = 1
 
     def initialize(args={})
       @report_distributor = Knapsack::Distributors::ReportDistributor.new(args)
@@ -55,7 +56,7 @@ module Knapsack
       return 1 if no_of_processes < 1 || size <= PARALLEL_THRESHOLD
       per_slice = size / no_of_processes
       # Try to get more than 2 files per process
-      while per_slice < 2 && no_of_processes > 1
+      while per_slice < MINIMUM_PER_PROCESS && no_of_processes > 1
         no_of_processes -= 1
         per_slice = size / no_of_processes
       end
