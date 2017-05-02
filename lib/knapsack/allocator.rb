@@ -1,7 +1,7 @@
 module Knapsack
   class Allocator
     # The maximum number of files allowed to run without parallelization
-    PARALLEL_THRESHOLD = 3
+    PARALLEL_THRESHOLD = 2
     MINIMUM_PER_PROCESS = 1
 
     def initialize(args={})

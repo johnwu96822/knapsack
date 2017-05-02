@@ -66,29 +66,26 @@ describe Knapsack::Allocator do
       end
     end
 
-    context 'with total number of files less than PARALLEL_THRESHOLD' do
-      let(:report_tests) { ['a_spec.rb'] }
+    context 'with total number of files less than or equal to PARALLEL_THRESHOLD' do
+      let(:report_tests) { [] }
 
       it 'returns the original list wrapped in an array' do
-        slices = allocator.split_tests(3)
+        slices = allocator.split_tests(2)
         expect(slices.length).to eq(1)
         expect(slices[0]).to eq(allocator.node_tests)
       end
     end
 
     context 'with splitting number greater or equal to the number of files' do
-      it 'returns an array with evenly distributed file slices, each with at least 2 files' do
-        slices = allocator.split_tests(6)
-        expect(slices.length).to eq(3)
-        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
-        expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
-        expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
-
+      it 'returns an array with evenly distributed file slices, each with at least 1 files' do
         slices = allocator.split_tests(8)
-        expect(slices.length).to eq(3)
-        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
-        expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
-        expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
+        expect(slices.length).to eq(6)
+        expect(slices[0]).to eq(['a_spec.rb'])
+        expect(slices[1]).to eq(['b_spec.rb'])
+        expect(slices[2]).to eq(['c_spec.rb'])
+        expect(slices[3]).to eq(['d_spec.rb'])
+        expect(slices[4]).to eq(['e_spec.rb'])
+        expect(slices[5]).to eq(['f_spec.rb'])
       end
     end
 
@@ -111,10 +108,11 @@ describe Knapsack::Allocator do
 
         it 'evenly distributes remaining files starting from the beginning slice' do
           slices = allocator.split_tests(4)
-          expect(slices.length).to eq(3)
-          expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb', 'c_spec.rb'])
-          expect(slices[1]).to eq(['d_spec.rb', 'e_spec.rb'])
-          expect(slices[2]).to eq(['f_spec.rb', 'g_spec.rb'])
+          expect(slices.length).to eq(4)
+          expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
+          expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
+          expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
+          expect(slices[3]).to eq(['g_spec.rb'])
 
           slices = allocator.split_tests(2)
           expect(slices.length).to eq(2)
@@ -145,9 +143,13 @@ describe Knapsack::Allocator do
           expect(slices[5].length).to eq(16)
 
           slices = allocator.split_tests(51)
-          expect(slices.length).to eq(50)
-          slices.each do |slice|
-            expect(slice.length).to eq(2)
+          expect(slices.length).to eq(51)
+          slices.each_with_index do |slice, index|
+            if index >= 49
+              expect(slice.length).to eq(1)
+            else
+              expect(slice.length).to eq(2)
+            end
           end
         end
       end
@@ -162,37 +164,39 @@ describe Knapsack::Allocator do
           [100, 2, 2],
           [99, 2, 2],
 
-          [5, 10, 2],
-          [4, 10, 2],
-          [3, 10, 1],
+          [5, 10, 5],
+          [4, 10, 4],
+          [3, 10, 3],
 
           [5, 2, 2],
           [4, 2, 2],
-          [3, 2, 1],
+          [3, 2, 2],
 
-          [5, 3, 2],
-          [4, 3, 2],
-          [3, 3, 1],
+          [5, 3, 3],
+          [4, 3, 3],
+          [3, 3, 3],
+          [2, 3, 1],
+          [1, 3, 1],
 
           [10, 4, 4],
           [9, 4, 4],
           [8, 4, 4],
-          [7, 4, 3],
-          [6, 4, 3],
-          [5, 4, 2],
-          [4, 4, 2],
-          [3, 4, 1],
+          [7, 4, 4],
+          [6, 4, 4],
+          [5, 4, 4],
+          [4, 4, 4],
+          [3, 4, 3],
           [2, 4, 1],
           [1, 4, 1],
 
-          [10, 8, 5],
-          [9, 8, 4],
-          [8, 8, 4],
-          [7, 8, 3],
-          [6, 8, 3],
-          [5, 8, 2],
-          [4, 8, 2],
-          [3, 8, 1],
+          [10, 8, 8],
+          [9, 8, 8],
+          [8, 8, 8],
+          [7, 8, 7],
+          [6, 8, 6],
+          [5, 8, 5],
+          [4, 8, 4],
+          [3, 8, 3],
           [2, 8, 1],
           [1, 8, 1]
         ]

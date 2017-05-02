@@ -25,7 +25,6 @@ module Knapsack::Parallelizer
       end
 
       def test(test_slices, index, identifier, options)
-        #sleep(index * 12)
         # For processes other than the very first one, fork_identifier is used
         # as the last portion of the database name and also part of the failure
         # log file names.
@@ -159,7 +158,6 @@ module Knapsack::Parallelizer
           begin
             if File.exist?(from)
               run_cmd("cat #{from} >> #{target}")
-              # File.delete(from)
             end
           rescue => e
             puts e.message
