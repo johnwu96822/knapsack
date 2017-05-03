@@ -34,20 +34,33 @@ module Knapsack
       no_of_processes = determine_no_of_processes(files.length, no_of_processes)
       return [files] if no_of_processes <= 1 || files.length <= PARALLEL_THRESHOLD
 
-      files_sliced = []
+      files = sort_by_file_size(files)
       # Slice the test files to evenly distribute them among "no_of_processes" of slices
-      size = files.length / no_of_processes
-      remain = files.length % no_of_processes
+      files_sliced = []
       index = 0
-      no_of_processes.times do |i|
-        end_index = index + size - 1
-        if remain > 0
-          end_index += 1
-          remain -= 1
+      files.each_with_index do |f, i|
+        if files_sliced[index].nil?
+          files_sliced[index] = [f]
+        else
+          files_sliced[index] << f
         end
-        files_sliced << files[index..end_index]
-        index = end_index + 1
+        if (i / no_of_processes) % 2 == 0
+          index += 1 if index < no_of_processes - 1
+        else
+          index -= 1 if index > 0
+        end
       end
+      # size = files.length / no_of_processes
+      # remain = files.length % no_of_processes
+      # no_of_processes.times do |i|
+      #   end_index = index + size - 1
+      #   if remain > 0
+      #     end_index += 1
+      #     remain -= 1
+      #   end
+      #   files_sliced << files[index..end_index]
+      #   index = end_index + 1
+      # end
       files_sliced[0..no_of_processes - 1]
     end
 
@@ -62,5 +75,12 @@ module Knapsack
       end
       no_of_processes
     end
+
+    def sort_by_file_size(filenames)
+      files_with_sizes = filenames.collect{ |f| {file: f, size: File.size?(f)} }
+      files_with_sizes.sort!{|a, b| a[:size] <=> b[:size] }
+      files_with_sizes.collect{ |f| f[:file] }
+    end
+
   end
 end
