@@ -57,6 +57,15 @@ describe Knapsack::Allocator do
   describe '#split_tests' do
     let(:report_tests) { ['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'] }
     let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb'] }
+    before do
+      allow(File).to receive(:size?).with('a_spec.rb').and_return(7)
+      allow(File).to receive(:size?).with('b_spec.rb').and_return(6)
+      allow(File).to receive(:size?).with('c_spec.rb').and_return(5)
+      allow(File).to receive(:size?).with('d_spec.rb').and_return(4)
+      allow(File).to receive(:size?).with('e_spec.rb').and_return(3)
+      allow(File).to receive(:size?).with('f_spec.rb').and_return(2)
+      allow(File).to receive(:size?).with('g_spec.rb').and_return(1)
+    end
 
     context 'with splitting number less than 2' do
       it 'returns the original list wrapped in an array' do
@@ -93,14 +102,14 @@ describe Knapsack::Allocator do
       it 'evenly distributes the number of files for each slice' do
         slices = allocator.split_tests(2)
         expect(slices.length).to eq(2)
-        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb', 'c_spec.rb'])
-        expect(slices[1]).to eq(['d_spec.rb', 'e_spec.rb', 'f_spec.rb'])
+        expect(slices[0]).to eq(['a_spec.rb', 'd_spec.rb', 'e_spec.rb'])
+        expect(slices[1]).to eq(['b_spec.rb', 'c_spec.rb', 'f_spec.rb'])
 
         slices = allocator.split_tests(3)
         expect(slices.length).to eq(3)
-        expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
-        expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
-        expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
+        expect(slices[0]).to eq(['a_spec.rb', 'f_spec.rb'])
+        expect(slices[1]).to eq(['b_spec.rb', 'e_spec.rb'])
+        expect(slices[2]).to eq(['c_spec.rb', 'd_spec.rb'])
       end
 
       context 'and remaining files after even split' do
@@ -109,48 +118,15 @@ describe Knapsack::Allocator do
         it 'evenly distributes remaining files starting from the beginning slice' do
           slices = allocator.split_tests(4)
           expect(slices.length).to eq(4)
-          expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb'])
-          expect(slices[1]).to eq(['c_spec.rb', 'd_spec.rb'])
-          expect(slices[2]).to eq(['e_spec.rb', 'f_spec.rb'])
-          expect(slices[3]).to eq(['g_spec.rb'])
+          expect(slices[0]).to eq(['a_spec.rb'])
+          expect(slices[1]).to eq(['b_spec.rb', 'g_spec.rb'])
+          expect(slices[2]).to eq(['c_spec.rb', 'f_spec.rb'])
+          expect(slices[3]).to eq(['d_spec.rb', 'e_spec.rb'])
 
           slices = allocator.split_tests(2)
           expect(slices.length).to eq(2)
-          expect(slices[0]).to eq(['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'])
-          expect(slices[1]).to eq(['e_spec.rb', 'f_spec.rb', 'g_spec.rb'])
-        end
-      end
-
-      context 'and larger number of files' do
-        let(:leftover_tests) do
-          tests = []
-          96.times{|i| tests << "#{i}_spec.rb" }
-          tests
-        end
-
-        it 'evenly distributes remaining files starting from the beginning slice' do
-          slices = allocator.split_tests(5)
-          expect(slices.length).to eq(5)
-          slices.each{ |slice| expect(slice.length).to eq(20) }
-
-          slices = allocator.split_tests(6)
-          expect(slices.length).to eq(6)
-          expect(slices[0].length).to eq(17)
-          expect(slices[1].length).to eq(17)
-          expect(slices[2].length).to eq(17)
-          expect(slices[3].length).to eq(17)
-          expect(slices[4].length).to eq(16)
-          expect(slices[5].length).to eq(16)
-
-          slices = allocator.split_tests(51)
-          expect(slices.length).to eq(51)
-          slices.each_with_index do |slice, index|
-            if index >= 49
-              expect(slice.length).to eq(1)
-            else
-              expect(slice.length).to eq(2)
-            end
-          end
+          expect(slices[0]).to eq(['a_spec.rb', 'd_spec.rb', 'e_spec.rb'])
+          expect(slices[1]).to eq(['b_spec.rb', 'c_spec.rb', 'f_spec.rb', 'g_spec.rb'])
         end
       end
     end
