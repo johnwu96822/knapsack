@@ -54,7 +54,7 @@ describe Knapsack::Allocator do
     it { should eql 'test_dir/' }
   end
 
-  describe '#split_tests' do
+  describe '#distribute_files' do
     let(:report_tests) { ['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'] }
     let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb'] }
     before do
@@ -69,7 +69,7 @@ describe Knapsack::Allocator do
 
     context 'with splitting number less than 2' do
       it 'returns the original list wrapped in an array' do
-        slices = allocator.split_tests(1)
+        slices = allocator.distribute_files(1)
         expect(slices.length).to eq(1)
         expect(slices[0]).to eq(allocator.node_tests)
       end
@@ -79,7 +79,7 @@ describe Knapsack::Allocator do
       let(:report_tests) { [] }
 
       it 'returns the original list wrapped in an array' do
-        slices = allocator.split_tests(2)
+        slices = allocator.distribute_files(2)
         expect(slices.length).to eq(1)
         expect(slices[0]).to eq(allocator.node_tests)
       end
@@ -87,7 +87,7 @@ describe Knapsack::Allocator do
 
     context 'with splitting number greater or equal to the number of files' do
       it 'returns an array with evenly distributed file slices, each with at least 1 files' do
-        slices = allocator.split_tests(8)
+        slices = allocator.distribute_files(8)
         expect(slices.length).to eq(6)
         expect(slices[0]).to eq(['a_spec.rb'])
         expect(slices[1]).to eq(['b_spec.rb'])
@@ -100,12 +100,12 @@ describe Knapsack::Allocator do
 
     context 'with splitting number less than the number of files' do
       it 'evenly distributes the number of files for each slice' do
-        slices = allocator.split_tests(2)
+        slices = allocator.distribute_files(2)
         expect(slices.length).to eq(2)
         expect(slices[0]).to eq(['a_spec.rb', 'd_spec.rb', 'e_spec.rb'])
         expect(slices[1]).to eq(['b_spec.rb', 'c_spec.rb', 'f_spec.rb'])
 
-        slices = allocator.split_tests(3)
+        slices = allocator.distribute_files(3)
         expect(slices.length).to eq(3)
         expect(slices[0]).to eq(['a_spec.rb', 'f_spec.rb'])
         expect(slices[1]).to eq(['b_spec.rb', 'e_spec.rb'])
@@ -116,14 +116,14 @@ describe Knapsack::Allocator do
         let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb', 'g_spec.rb'] }
 
         it 'evenly distributes remaining files starting from the beginning slice' do
-          slices = allocator.split_tests(4)
+          slices = allocator.distribute_files(4)
           expect(slices.length).to eq(4)
           expect(slices[0]).to eq(['a_spec.rb'])
           expect(slices[1]).to eq(['b_spec.rb', 'g_spec.rb'])
           expect(slices[2]).to eq(['c_spec.rb', 'f_spec.rb'])
           expect(slices[3]).to eq(['d_spec.rb', 'e_spec.rb'])
 
-          slices = allocator.split_tests(2)
+          slices = allocator.distribute_files(2)
           expect(slices.length).to eq(2)
           expect(slices[0]).to eq(['a_spec.rb', 'd_spec.rb', 'e_spec.rb'])
           expect(slices[1]).to eq(['b_spec.rb', 'c_spec.rb', 'f_spec.rb', 'g_spec.rb'])

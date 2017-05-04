@@ -37,7 +37,7 @@ module Knapsack
     # 2. Evenly distributing the files by their sizes with the zig-zag fashion.
     #    This is to hope that each process would get more even number of tests,
     #    assuming the number of tests is related to the size of their files.
-    def split_tests(no_of_processes)
+    def distribute_files(no_of_processes)
       files = node_tests
       no_of_processes = determine_no_of_processes(files.length, no_of_processes)
       return [files] if no_of_processes <= 1 || files.length <= PARALLEL_THRESHOLD

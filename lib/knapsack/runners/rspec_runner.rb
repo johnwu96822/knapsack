@@ -14,7 +14,7 @@ module Knapsack
 
         num = num_of_forks
         if num > 1 && !skip_parallel?
-          test_slices = allocator.split_tests(num)
+          test_slices = allocator.distribute_files(num)
           if test_slices.length > 1
             begin
               puts "Tests will be parallelized into #{test_slices.length} processes"
