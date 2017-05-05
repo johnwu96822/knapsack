@@ -50,6 +50,8 @@ module Knapsack::Parallelizer
         options = db_options(db_config)
         Knapsack::Util.run_cmd("mysqldump #{options} #{db_config['database']} > #{filename}")
 
+        # The first process will use the origin/main database, instead of one that is
+        # appeneded with additional index. Hence the (num - 1) here
         (num - 1).times do |i|
           db_name = "#{db_config['database']}#{identifier}#{i + 1}"
           Knapsack::Util.run_cmd("mysqladmin #{options} create #{db_name}")
