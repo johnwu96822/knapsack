@@ -58,19 +58,18 @@ module Knapsack::Parallelizer
       end
 
       def clean_up
-        if File.exist?('tmp/parallel_pids.txt')
-          data = `cat tmp/parallel_pids.txt`
-          unless data.empty?
-            puts "Cleaning up the forked processes: #{data}"
-            pids = data.strip.split(',').collect{|i| i.to_i }
+        Dir.glob("tmp/parallel_pids/*") do |path|
+          filename = File.basename(path)
+          if filename =~ /^\d+$/
+            puts "Cleaning up the forked processes: #{filename}"
             begin
-              Process.kill('KILL', *pids) unless pids.empty?
+              Process.kill('KILL', filename.to_i)
             rescue => e
               puts e.message
             end
           end
-          system("rm -f tmp/parallel_pids.txt")
         end
+        system("rm -Rf tmp/parallel_pids")
 
         if File.exist?('tmp/parallel_identifier.txt')
           data = `cat tmp/parallel_identifier.txt`
@@ -84,7 +83,7 @@ module Knapsack::Parallelizer
 
         # Output the logs that were not displayed due to the rspec process getting killed
         Dir.glob("tmp/knapsack_*_*.log") do |filename|
-          puts "************* Unfinished Tests #{filename} **************"
+          puts "************* Unfinished Test: #{filename} **************"
           system("cat #{filename}")
           puts "******* END OF #{filename} ********"
           puts
@@ -108,13 +107,15 @@ module Knapsack::Parallelizer
               begin
                 test(test_slices, i, identifier, options)
               ensure
-                remove_pid(Process.pid)
+                system("rm tmp/parallel_pids/#{Process.pid}")
                 # Force the fork to end without running at_exit bindings
                 Kernel.exit!
               end
             end
           end
-          system("echo #{pids.join(',')} > tmp/parallel_pids.txt")
+          system("mkdir tmp/parallel_pids")
+          pid_files = pids.collect{|pid| "tmp/parallel_pids/#{pid}"}.join(' ')
+          Knapsack::Util.run_cmd("touch #{pid_files}")
           # Wait for the forks to finish the tests
           pids.each {|pid| Process.wait(pid)}
         else
@@ -159,18 +160,6 @@ module Knapsack::Parallelizer
           rescue => e
             puts e.message
             puts e.backtrace.join("\n\t")
-          end
-        end
-      end
-
-      def remove_pid(pid)
-        if File.exist?('tmp/parallel_pids.txt')
-          values = `cat tmp/parallel_pids.txt`.strip.split(',')
-          values.delete(pid.to_s)
-          if values.empty?
-            system("rm -f tmp/parallel_pids.txt")
-          else
-            system("echo #{values.join(',')} > tmp/parallel_pids.txt")
           end
         end
       end
