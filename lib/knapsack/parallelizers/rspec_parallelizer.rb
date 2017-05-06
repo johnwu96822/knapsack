@@ -22,6 +22,7 @@ module Knapsack::Parallelizer
         puts e.backtrace.join("\n\t")
       ensure
         combine_failures(worker_count, identifier)
+        clean_up
       end
 
       def test(test_slices, index, identifier, options)
