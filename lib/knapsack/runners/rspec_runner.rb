@@ -40,7 +40,8 @@ module Knapsack
 
       def self.ncpu
         #sysctl for OSX, nproc for linux
-        RUBY_PLATFORM.include?('darwin') ? `sysctl -n hw.ncpu`.to_i : `nproc`.to_i
+        num = RUBY_PLATFORM.include?('darwin') ? `sysctl -n hw.ncpu`.to_i : `nproc`.to_i
+        num <= 1 ? 1 : num
       rescue Errno::ENOENT
         1
       end
