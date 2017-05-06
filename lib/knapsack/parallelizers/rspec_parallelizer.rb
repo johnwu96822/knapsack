@@ -60,18 +60,20 @@ module Knapsack::Parallelizer
       end
 
       def clean_up
-        Dir.glob("tmp/parallel_pids/*") do |path|
-          filename = File.basename(path)
-          if filename =~ /^\d+$/
-            puts "Cleaning up the forked processes: #{filename}"
-            begin
-              Process.kill('KILL', filename.to_i)
-            rescue => e
-              puts e.message
+        if Dir.exist?('tmp/parallel_pids')
+          Dir.glob("tmp/parallel_pids/*") do |path|
+            filename = File.basename(path)
+            if filename =~ /^\d+$/
+              puts "Cleaning up the forked processes: #{filename}"
+              begin
+                Process.kill('KILL', filename.to_i)
+              rescue => e
+                puts e.message
+              end
             end
           end
+          system("rm -Rf tmp/parallel_pids")
         end
-        system("rm -Rf tmp/parallel_pids")
 
         if File.exist?('tmp/parallel_identifier.txt')
           data = `cat tmp/parallel_identifier.txt`
