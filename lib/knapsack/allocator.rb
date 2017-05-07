@@ -42,22 +42,19 @@ module Knapsack
       number_of_processes = determine_number_of_processes(files.length, max_process_count)
       return [files] if number_of_processes <= 1 || files.length <= PARALLEL_THRESHOLD
 
-      files = sort_by_file_time(files)
-      # Slice the test files to evenly distribute them among "number_of_processes" of slices
+      # Slice the test files to evenly distribute them among "no_of_processes" of slices
       files_sliced = []
+      size = files.length / number_of_processes
+      remain = files.length % number_of_processes
       index = 0
-      # Zig-zag distribute the files which have been sorted by file size
-      files.each_with_index do |f, i|
-        if files_sliced[index].nil?
-          files_sliced[index] = [f]
-        else
-          files_sliced[index] << f
+      number_of_processes.times do |i|
+        end_index = index + size - 1
+        if remain > 0
+          end_index += 1
+          remain -= 1
         end
-        if (i / number_of_processes) % 2 == 0
-          index += 1 if index < number_of_processes - 1
-        else
-          index -= 1 if index > 0
-        end
+        files_sliced << files[index..end_index]
+        index = end_index + 1
       end
       files_sliced
     end
@@ -72,28 +69,6 @@ module Knapsack
         per_slice = size / number_of_processes
       end
       number_of_processes
-    end
-
-    # Sort files by their sizes in descending order
-    def sort_by_file_time(filenames)
-      files_with_time = []
-      files_with_sizes = []
-      report = @report_distributor.report
-      filenames.each do |f|
-        time = report[f]
-        if time.nil?
-          # Use bloated file size for files without a reported time
-          size = File.size?(f)
-          files_with_sizes << {file: f, size: size.nil? ? 0 : size}
-        else
-          files_with_time << {file: f, time: time}
-        end
-      end
-      files_with_time.sort!{|a, b| b[:time] <=> a[:time] }
-      files_with_sizes.sort!{|a, b| b[:size] <=> a[:size] }
-      puts "Files with report time: #{files_with_time}" if to_bool(ENV['VERBOSE'])
-      puts "Files with report sizes: #{files_with_sizes}" if to_bool(ENV['VERBOSE'])
-      (files_with_time + files_with_sizes).collect{ |f| f[:file] }
     end
 
   end
