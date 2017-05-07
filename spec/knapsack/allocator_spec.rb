@@ -65,10 +65,16 @@ describe Knapsack::Allocator do
         'e_spec.rb' => 3.3,
         'f_spec.rb' => 2.2,
         'g_spec.rb' => 1.1,
-        'h_spec.rb' => nil }
+        'h_spec.rb' => nil,
+        'i_spec.rb' => nil,
+        'j_spec.rb' => nil }
     end
     before do
       allow(report_distributor).to receive(:report).and_return(report)
+      allow(File).to receive(:size?).with('h_spec.rb').and_return(3)
+      allow(File).to receive(:size?).with('i_spec.rb').and_return(2)
+      allow(File).to receive(:size?).with('j_spec.rb').and_return(1)
+      allow(File).to receive(:size?).with('k_spec.rb').and_return(nil)
     end
 
     context 'with splitting number less than 2' do
@@ -149,6 +155,25 @@ describe Knapsack::Allocator do
             expect(slices[1]).to eq(['b_spec.rb', 'c_spec.rb', 'f_spec.rb', 'g_spec.rb'])
           end
         end
+
+        context 'and files without time but have sizes' do
+          let(:leftover_tests) { ['h_spec.rb', 'i_spec.rb', 'j_spec.rb', 'k_spec.rb', 'e_spec.rb', 'f_spec.rb', 'g_spec.rb'] }
+
+          it 'evenly distributes remaining files with reported time first, then with file sizes' do
+            slices = allocator.distribute_files(4)
+            expect(slices.length).to eq(4)
+            expect(slices[0]).to eq(['a_spec.rb', 'h_spec.rb', 'i_spec.rb'])
+            expect(slices[1]).to eq(['b_spec.rb', 'g_spec.rb', 'j_spec.rb'])
+            expect(slices[2]).to eq(['c_spec.rb', 'f_spec.rb', 'k_spec.rb'])
+            expect(slices[3]).to eq(['d_spec.rb', 'e_spec.rb'])
+
+            slices = allocator.distribute_files(2)
+            expect(slices.length).to eq(2)
+            expect(slices[0]).to eq(['a_spec.rb', 'd_spec.rb', 'e_spec.rb', 'h_spec.rb', 'i_spec.rb'])
+            expect(slices[1]).to eq(['b_spec.rb', 'c_spec.rb', 'f_spec.rb', 'g_spec.rb', 'j_spec.rb', 'k_spec.rb'])
+          end
+        end
+
       end
     end
   end

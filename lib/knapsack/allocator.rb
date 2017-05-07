@@ -77,13 +77,21 @@ module Knapsack
     # Sort files by their sizes in descending order
     def sort_by_file_time(filenames)
       files_with_time = []
+      files_with_sizes = []
       report = @report_distributor.report
       filenames.each do |f|
-        time = (report[f] || 0).to_f
-        files_with_time << {file: f, time: time}
+        time = report[f]
+        if time.nil?
+          # Use bloated file size for files without a reported time
+          size = File.size?(f)
+          files_with_sizes << {file: f, size: size.nil? ? 0 : size}
+        else
+          files_with_time << {file: f, time: time}
+        end
       end
       files_with_time.sort!{|a, b| b[:time] <=> a[:time] }
-      files_with_time.collect{ |f| f[:file] }
+      files_with_sizes.sort!{|a, b| b[:size] <=> a[:size] }
+      (files_with_time + files_with_sizes).collect{ |f| f[:file] }
     end
 
   end
