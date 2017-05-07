@@ -38,6 +38,7 @@ module Knapsack
         exit($?.exitstatus)
       end
 
+      # Number of CPUs for this machine
       def self.ncpu
         #sysctl for OSX, nproc for linux
         num = RUBY_PLATFORM.include?('darwin') ? `sysctl -n hw.ncpu`.to_i : `nproc`.to_i
@@ -46,11 +47,13 @@ module Knapsack
         1
       end
 
+      # Maximum number of processes allowed for this agent
       def self.max_process_count
         # Default is 2 agents per instance
-        default_num = 2
-        num_agents = (ENV['NUM_AGENTS_PER_INSTANCE'] || default_num).to_i
-        num = (ncpu.to_f / (num_agents == 0 ? default_num : num_agents)).ceil
+        default_agent_count = 2
+        num_agents = (ENV['NUM_AGENTS_PER_INSTANCE'] || default_agent_count).to_i
+        num = (ncpu.to_f / (num_agents == 0 ? default_agent_count : num_agents)).ceil
+        num <= 1 ? 1 : num
       end
 
       def self.skip_parallel?

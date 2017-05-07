@@ -25,6 +25,7 @@ module Knapsack::Parallelizer
         clean_up
       end
 
+      # This runs within the forked processes
       def test(test_slices, index, identifier, options)
         # For processes other than the very first one, fork_identifier is used
         # as the last portion of the database name and also part of the failure
@@ -44,7 +45,7 @@ module Knapsack::Parallelizer
       # the main database (the one we are duplicating from, without the added identifier)
       def setup(num, identifier, options = {})
         db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
-        return db_config if num <= 1
+        return if num <= 1
 
         filename = "tmp/testdb.sql"
         options = db_options(db_config)
@@ -60,39 +61,9 @@ module Knapsack::Parallelizer
       end
 
       def clean_up
-        if Dir.exist?('tmp/parallel_pids')
-          Dir.glob("tmp/parallel_pids/*") do |path|
-            filename = File.basename(path)
-            if filename =~ /^\d+$/
-              puts "Cleaning up the forked processes: #{filename}"
-              begin
-                Process.kill('KILL', filename.to_i)
-              rescue => e
-                puts e.message
-              end
-            end
-          end
-          system("rm -Rf tmp/parallel_pids")
-        end
-
-        if File.exist?('tmp/parallel_identifier.txt')
-          data = `cat tmp/parallel_identifier.txt`
-          unless data.empty?
-            puts "Cleaning up the duplicated database(s): #{data}"
-            values = data.strip.split(',')
-            clean_up_dbs(values[0].to_i, values[1])
-          end
-          system("rm -f tmp/parallel_identifier.txt")
-        end
-
-        # Output the logs that were not displayed due to the rspec process getting killed
-        Dir.glob("tmp/knapsack_*_*.log") do |filename|
-          puts
-          puts "************* Unfinished Test: #{filename} **************"
-          system("cat #{filename}")
-          puts "******* END OF #{filename} ********"
-          system("rm -f #{filename}")
-        end
+        clean_up_processes
+        clean_up_databases
+        clean_up_logs
       end
 
       protected
@@ -165,6 +136,46 @@ module Knapsack::Parallelizer
             puts e.message
             puts e.backtrace.join("\n\t")
           end
+        end
+      end
+
+      def clean_up_processes
+        if Dir.exist?('tmp/parallel_pids')
+          Dir.glob("tmp/parallel_pids/*") do |path|
+            filename = File.basename(path)
+            if filename =~ /^\d+$/
+              puts "Cleaning up the forked processes: #{filename}"
+              begin
+                Process.kill('KILL', filename.to_i)
+              rescue => e
+                puts e.message
+              end
+            end
+          end
+          system("rm -Rf tmp/parallel_pids")
+        end
+      end
+
+      def clean_up_databases
+        if File.exist?('tmp/parallel_identifier.txt')
+          data = `cat tmp/parallel_identifier.txt`
+          unless data.empty?
+            puts "Cleaning up the duplicated database(s): #{data}"
+            values = data.strip.split(',')
+            clean_up_dbs(values[0].to_i, values[1])
+          end
+          system("rm -f tmp/parallel_identifier.txt")
+        end
+      end
+
+      def clean_up_logs
+        # Output the logs that were not displayed due to the rspec process getting killed
+        Dir.glob("tmp/knapsack_*_*.log") do |filename|
+          puts
+          puts "************* Unfinished Test: #{filename} **************"
+          system("cat #{filename}")
+          puts "******* END OF #{filename} ********"
+          system("rm -f #{filename}")
         end
       end
 
