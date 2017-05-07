@@ -91,6 +91,8 @@ module Knapsack
       end
       files_with_time.sort!{|a, b| b[:time] <=> a[:time] }
       files_with_sizes.sort!{|a, b| b[:size] <=> a[:size] }
+      puts "Files with report time: #{files_with_time}" if to_bool(ENV['VERBOSE'])
+      puts "Files with report sizes: #{files_with_sizes}" if to_bool(ENV['VERBOSE'])
       (files_with_time + files_with_sizes).collect{ |f| f[:file] }
     end
 
