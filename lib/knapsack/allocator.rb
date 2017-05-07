@@ -42,7 +42,7 @@ module Knapsack
       number_of_processes = determine_number_of_processes(files.length, max_process_count)
       return [files] if number_of_processes <= 1 || files.length <= PARALLEL_THRESHOLD
 
-      files = sort_by_file_size(files)
+      files = sort_by_file_time(files)
       # Slice the test files to evenly distribute them among "number_of_processes" of slices
       files_sliced = []
       index = 0
@@ -75,14 +75,15 @@ module Knapsack
     end
 
     # Sort files by their sizes in descending order
-    def sort_by_file_size(filenames)
-      files_with_sizes = []
+    def sort_by_file_time(filenames)
+      files_with_time = []
+      report = @report_distributor.report
       filenames.each do |f|
-        size = File.size?(f)
-        files_with_sizes << {file: f, size: size.nil? ? 0 : size}
+        time = (report[f] || 0).to_f
+        files_with_time << {file: f, time: time}
       end
-      files_with_sizes.sort!{|a, b| b[:size] <=> a[:size] }
-      files_with_sizes.collect{ |f| f[:file] }
+      files_with_time.sort!{|a, b| b[:time] <=> a[:time] }
+      files_with_time.collect{ |f| f[:file] }
     end
 
   end

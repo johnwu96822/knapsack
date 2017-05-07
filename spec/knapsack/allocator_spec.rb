@@ -57,15 +57,18 @@ describe Knapsack::Allocator do
   describe '#distribute_files' do
     let(:report_tests) { ['a_spec.rb', 'b_spec.rb', 'c_spec.rb', 'd_spec.rb'] }
     let(:leftover_tests) { ['e_spec.rb', 'f_spec.rb'] }
+    let(:report) do
+      { 'a_spec.rb' => 7.7,
+        'b_spec.rb' => 6.6,
+        'c_spec.rb' => 5.5,
+        'd_spec.rb' => 4.4,
+        'e_spec.rb' => 3.3,
+        'f_spec.rb' => 2.2,
+        'g_spec.rb' => 1.1,
+        'h_spec.rb' => nil }
+    end
     before do
-      allow(File).to receive(:size?).with('a_spec.rb').and_return(7)
-      allow(File).to receive(:size?).with('b_spec.rb').and_return(6)
-      allow(File).to receive(:size?).with('c_spec.rb').and_return(5)
-      allow(File).to receive(:size?).with('d_spec.rb').and_return(4)
-      allow(File).to receive(:size?).with('e_spec.rb').and_return(3)
-      allow(File).to receive(:size?).with('f_spec.rb').and_return(2)
-      allow(File).to receive(:size?).with('g_spec.rb').and_return(1)
-      allow(File).to receive(:size?).with('h_spec.rb').and_return(nil)
+      allow(report_distributor).to receive(:report).and_return(report)
     end
 
     context 'with splitting number less than 2' do
