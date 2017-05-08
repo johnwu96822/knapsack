@@ -13,6 +13,7 @@ module Knapsack
         puts
 
         num = max_process_count
+        num = 1
         if num > 1 && !skip_parallel?
           test_slices = allocator.distribute_files(num)
           if test_slices.length > 1
@@ -31,7 +32,8 @@ module Knapsack
           cmd = 'true'
           puts 'No tests to run, check knapsack_all_tests_file_names'
         else
-          files = allocator.stringify_node_tests
+          #files = allocator.stringify_node_tests
+          files = 'spec/features/contracts/overwrite_payment_and_shipping_term_permission_spec.rb spec/features/easy_forms/sim/supplier_manager_role_permissions_disable_sim_spec.rb'
           cmd = %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{files}]
         end
         system(cmd)
