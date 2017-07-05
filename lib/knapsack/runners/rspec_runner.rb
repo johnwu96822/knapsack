@@ -33,8 +33,10 @@ module Knapsack
           puts 'No tests to run, check knapsack_all_tests_file_names'
         else
           #files = allocator.stringify_node_tests
-          files = 'spec/features/easy_form_responses/submit_for_approval.feature spec/features/easy_forms/sim/supplier_manager_role_permissions_disable_sim_spec.rb'# spec/features/contracts/overwrite_payment_and_shipping_term_permission_spec.rb'
+          #files = 'spec/features/easy_form_responses/submit_for_approval.feature spec/features/easy_forms/sim/supplier_manager_role_permissions_disable_sim_spec.rb'# spec/features/contracts/overwrite_payment_and_shipping_term_permission_spec.rb'
           #files = 'spec/features/easy_forms/csp_multiple_invoice_form_lines_spec.rb spec/features/easy_forms/sim/supplier_manager_role_permissions_disable_sim_spec.rb spec/features/easy_forms/sim/supplier_manager_permissions_to_sim_flows_spec.rb'
+
+          files = 'spec/features/contracts/overwrite_payment_and_shipping_term_permission_spec.rb spec/features/easy_forms/sim/supplier_manager_role_permissions_disable_sim_spec.rb'
           cmd = %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args} #{files}]
         end
         system(cmd)
