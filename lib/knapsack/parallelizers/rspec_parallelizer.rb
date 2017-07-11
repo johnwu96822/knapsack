@@ -30,7 +30,7 @@ module Knapsack::Parallelizer
         # For processes other than the very first one, fork_identifier is used
         # as the last portion of the database name and also part of the failure
         # log file names.
-        fork_identifier = "#{identifier}#{index}"
+        fork_identifier = index > 0 ? "#{identifier}#{index}" : ""
         # Use time for the regular (not failure) log file names so that when running
         # it locally, it would not overwrite the previous log files
         log_file = "tmp/knapsack_#{options[:time].to_i}_#{index}.log"
@@ -39,6 +39,9 @@ module Knapsack::Parallelizer
         puts "******* Parallel testing #{index + 1}/#{test_slices.length} finished ********"
         system("cat #{log_file}")
         system("rm #{log_file}")
+
+        puts "Failed files:"
+        system("cat tmp/integration#{fork_identifier}.failures")
       end
 
       # Duplicating test databases for forks other than the first one, since the first fork uses
