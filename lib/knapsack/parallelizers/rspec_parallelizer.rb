@@ -24,6 +24,14 @@ module Knapsack::Parallelizer
         puts
         combine_failures(worker_count, identifier)
         clean_up
+        if File.exists?("tmp/error_forked_rspec")
+          puts
+          puts "Some forked rspec processes exited with error code:"
+          puts "Process index:Exit code"
+          system("cat 'tmp/error_forked_rspec'")
+          return false
+        end
+        return true
       end
 
       # This runs within the forked processes
@@ -35,7 +43,16 @@ module Knapsack::Parallelizer
         # Use time for the regular (not failure) log file names so that when running
         # it locally, it would not overwrite the previous log files
         log_file = "tmp/knapsack_#{options[:time].to_i}_#{index}.log"
-        Knapsack::Util.run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
+        # Set 10 seconds apart for each build to avoid Bootsnap problem
+        sleep(index * 10) if index > 0
+        status = Knapsack::Util.run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
+        unless status
+          code = $?
+          open('tmp/error_forked_rspec', 'a') do |f|
+            f.puts "#{index}:#{code}"
+          end
+        end
+
         puts
         puts "******* Parallel testing #{index + 1}/#{test_slices.length} finished ********"
         system("cat #{log_file}")
