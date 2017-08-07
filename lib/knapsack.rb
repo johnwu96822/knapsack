@@ -10,6 +10,7 @@ require_relative 'knapsack/report'
 require_relative 'knapsack/allocator'
 require_relative 'knapsack/allocator_builder'
 require_relative 'knapsack/task_loader'
+require_relative 'knapsack/util'
 require_relative 'knapsack/distributors/base_distributor'
 require_relative 'knapsack/distributors/report_distributor'
 require_relative 'knapsack/distributors/leftover_distributor'
@@ -20,6 +21,7 @@ require_relative 'knapsack/adapters/minitest_adapter'
 require_relative 'knapsack/runners/rspec_runner'
 require_relative 'knapsack/runners/cucumber_runner'
 require_relative 'knapsack/runners/minitest_runner'
+require_relative 'knapsack/parallelizers/rspec_parallelizer'
 
 module Knapsack
   class << self
