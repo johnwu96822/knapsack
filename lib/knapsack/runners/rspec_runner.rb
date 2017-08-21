@@ -51,7 +51,9 @@ module Knapsack
         # Default is 2 agents per instance
         default_agent_count = 2
         num_agents = (ENV['NUM_AGENTS_PER_INSTANCE'] || default_agent_count).to_i
-        num = (ncpu.to_f / (num_agents == 0 ? default_agent_count : num_agents)).ceil
+        num = (ncpu.to_f / (num_agents < 1 ? default_agent_count : num_agents)).ceil
+        max = ENV['MAX_PROCESS_PER_AGENT'].to_i
+        num = max if max > 0 && num > max
         num <= 1 ? 1 : num
       end
 
