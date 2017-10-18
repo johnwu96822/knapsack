@@ -43,8 +43,12 @@ module Knapsack::Parallelizer
         # Use time for the regular (not failure) log file names so that when running
         # it locally, it would not overwrite the previous log files
         log_file = "tmp/knapsack_#{options[:time].to_i}_#{index}.log"
-        # Set 10 seconds apart for each build to avoid Bootsnap problem
-        sleep(index * 10) if index > 0
+
+        # If ENV['PARALLEL_LAUNCH_INTERVAL'] exists and is positive, launch parallel
+        # processes in such interval time.
+        interval_s = (ENV['PARALLEL_LAUNCH_INTERVAL'] || 0).to_f
+        sleep(index * interval_s) if interval_s > 0 && index > 0
+
         status = Knapsack::Util.run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
         unless status
           code = $?
