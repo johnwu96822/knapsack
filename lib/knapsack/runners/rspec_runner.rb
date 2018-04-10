@@ -31,9 +31,14 @@ module Knapsack
           cmd = 'true'
           puts 'No tests to run, check knapsack_all_tests_file_names'
         else
-          cmd = %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args}  #{allocator.stringify_node_tests}]
+          cmd = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
+            path = File.expand_path("../../plugins/rake-runner/rb", Dir.pwd)
+            Knapsack::Util.run_cmd("#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} beluga turnip #{args} #{allocator.stringify_node_tests}")
+          else
+            %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args}  #{allocator.stringify_node_tests}]
+          end
         end
-        system(cmd)
+        Knapsack::Util.run_cmd(cmd)
         exit($?.exitstatus)
       end
 
