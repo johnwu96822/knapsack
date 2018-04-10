@@ -49,7 +49,7 @@ module Knapsack::Parallelizer
         interval_s = (ENV['PARALLEL_LAUNCH_INTERVAL'] || 0).to_f
         sleep(index * interval_s) if interval_s > 0 && index > 0
 
-        status = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome' &&
+        status = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
           Knapsack::Util.run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} beluga turnip #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
         else
           Knapsack::Util.run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")

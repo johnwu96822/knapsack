@@ -31,7 +31,7 @@ module Knapsack
           cmd = 'true'
           puts 'No tests to run, check knapsack_all_tests_file_names'
         else
-          cmd = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome' &&
+          cmd = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
             %Q[beluga turnip #{args} #{allocator.stringify_node_tests}]
           else
             %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args}  #{allocator.stringify_node_tests}]
