@@ -51,7 +51,8 @@ module Knapsack::Parallelizer
 
         status = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
           path = File.expand_path("../../plugins/rake-runner/rb", Dir.pwd)
-          Knapsack::Util.run_cmd("#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} #{'TC_PARALLEL_ID='+fork_identifier if index > 0} beluga turnip #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
+          system("env > tmp/host.env")
+          Knapsack::Util.run_cmd("#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} #{'TC_PARALLEL_ID='+fork_identifier if index > 0} beluga -x=--env-file -x=tmp/host.env turnip #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
         else
           Knapsack::Util.run_cmd("#{'TC_PARALLEL_ID='+fork_identifier if index > 0} bundle exec rspec -r turnip/rspec -r turnip/capybara #{options[:args]} #{test_slices[index].join(' ')} > #{log_file}")
         end
