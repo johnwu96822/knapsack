@@ -33,7 +33,12 @@ module Knapsack
         else
           cmd = if ENV['ENABLE_BELUGA'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
             path = File.expand_path("../../plugins/rake-runner/rb", Dir.pwd)
-            Knapsack::Util.run_cmd("#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} beluga turnip #{args} #{allocator.stringify_node_tests}")
+            if ENV['ENABLE_LIGHTNING'] == 'true'
+              envs = "TEST_ENV_NUM=#{max_process_count} #{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)}"
+              "#{envs} beluga turnip_lightning #{args} #{allocator.stringify_node_tests}"
+            else
+              "#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} beluga turnip #{args} #{allocator.stringify_node_tests}"
+            end
           else
             %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args}  #{allocator.stringify_node_tests}]
           end
@@ -63,7 +68,7 @@ module Knapsack
       end
 
       def self.skip_parallel?
-        ENV['JS_DRIVER'] == 'selenium-ie-remote' || Knapsack::Util.to_bool(ENV['SKIP_PARALLEL'])
+        ENV['JS_DRIVER'] == 'selenium-ie-remote' || Knapsack::Util.to_bool(ENV['SKIP_PARALLEL']) || ENV['ENABLE_LIGHTNING'] == 'true'
       end
     end
   end
