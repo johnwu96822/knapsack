@@ -39,6 +39,18 @@ module Knapsack
             else
               "#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} beluga turnip #{args} #{allocator.stringify_node_tests}"
             end
+          elsif ENV['ENABLE_LIGHTNING'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
+            lightning_path = "devscripts/teamcity/ci-scripts/lib/lightning"
+            if Dir.exists?(lightning_path)
+              path = File.expand_path("../../plugins/rake-runner/rb", Dir.pwd)
+              opts = Dir.exists?(path) ? "-I #{path}/patch/common -I #{path}/patch/testunit -I #{path}/patch/bdd --deprecation-out tmp/artifacts/deprecations.log" : ''
+              envs = "LIGHTNING_START=true TEST_ENV_NUM=#{max_process_count} LIGHTNING_STRIKES=#{lightning_path}"
+              "#{envs} bundle exec ruby #{lightning_path}/rspec_server.rb start #{args} #{opts} && " +
+                "bundle exec ruby #{lightning_path}/tc_parallel.rb #{allocator.stringify_node_tests}"
+            else
+              puts "'#{lightning_path}' directory not found in the app directory. Unable to start lightning."
+              exit(1)
+            end
           else
             %Q[bundle exec rspec -r turnip/rspec -r turnip/capybara #{args}  #{allocator.stringify_node_tests}]
           end
