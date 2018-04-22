@@ -15,8 +15,11 @@ module Knapsack::Parallelizer
         # This file will be read and used in clean_up
         system("echo #{worker_count},#{identifier} > tmp/parallel_identifier.txt")
 
-        setup(worker_count, identifier, options)
-        run_tests(test_slices, identifier, options)
+        db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
+        filename = "tmp/testdb.sql"
+        Knapsack::Util.run_cmd("mysqldump #{db_options(db_config)} #{db_config['database']} > #{filename}")
+
+        run_tests(test_slices, identifier, db_config, options)
       rescue => e
         puts e.message
         puts e.backtrace.join("\n\t")
@@ -71,25 +74,6 @@ module Knapsack::Parallelizer
         puts(failures.present? ? "Failed files:\n#{failures}" : "All test files passed")
       end
 
-      # Duplicating test databases for forks other than the first one, since the first fork uses
-      # the main database (the one we are duplicating from, without the added identifier)
-      def setup(num, identifier, options = {})
-        return if num <= 1
-        db_config = YAML.load(ERB.new(File.read('config/database.yml')).result)['test']
-
-        filename = "tmp/testdb.sql"
-        options = db_options(db_config)
-        Knapsack::Util.run_cmd("mysqldump #{options} #{db_config['database']} > #{filename}")
-
-        # The first process will use the origin/main database, instead of one that is
-        # appeneded with additional index. Hence the (num - 1) here
-        (num - 1).times do |i|
-          db_name = "#{db_config['database']}#{identifier}#{i + 1}"
-          Knapsack::Util.run_cmd("mysqladmin #{options} create #{db_name}")
-          Knapsack::Util.run_cmd("mysql #{options} #{db_name} < #{filename}")
-        end
-      end
-
       def clean_up
         clean_up_processes
         clean_up_databases
@@ -102,7 +86,7 @@ module Knapsack::Parallelizer
       # run parallely by a process.
       # identifier is the current process's identifier that will be used to further
       # distinguish each fork's database name.
-      def run_tests(test_slices, identifier, options = {})
+      def run_tests(test_slices, identifier, db_config, options = {})
         worker_count = test_slices.length
         options[:time] = Time.now
         if worker_count > 1
@@ -110,6 +94,14 @@ module Knapsack::Parallelizer
           worker_count.times do |i|
             pids << fork do
               begin
+                if i > 0
+                  filename = "tmp/testdb.sql"
+                  db_name = "#{db_config['database']}#{identifier}#{i}"
+
+                  sql = "CREATE DATABASE #{db_name}; USE #{db_name}; SOURCE #{filename};"
+                  Knapsack::Util.run_cmd("mysql #{db_options(db_config)} -e \"#{sql}\"")
+                end
+
                 test(test_slices, i, identifier, options)
               ensure
                 system("rm tmp/parallel_pids/#{Process.pid}")
