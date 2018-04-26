@@ -43,10 +43,9 @@ module Knapsack
             lightning_path = "devscripts/teamcity/ci-scripts/lib/lightning"
             if Dir.exists?(lightning_path)
               path = File.expand_path("../../plugins/rake-runner/rb", Dir.pwd)
-              opts = Dir.exists?(path) ? "-I #{path}/patch/common -I #{path}/patch/testunit -I #{path}/patch/bdd --deprecation-out tmp/artifacts/deprecations.log" : ''
-              envs = "LIGHTNING_START=true TEST_ENV_NUM=#{max_process_count} LIGHTNING_STRIKES=#{lightning_path}"
-              "#{envs} bundle exec ruby #{lightning_path}/rspec_server.rb start #{args} #{opts} && " +
-                "bundle exec ruby #{lightning_path}/tc_parallel.rb #{allocator.stringify_node_tests}"
+              opts = Dir.exists?(path) ? "ADDITIONAL_RSPEC_OPTS='-I #{path}/patch/common -I #{path}/patch/testunit -I #{path}/patch/bdd --deprecation-out tmp/artifacts/deprecations.log'" : ''
+              envs = "TEST_ENV_NUM=#{max_process_count} LIGHTNING_STRIKES=#{lightning_path} #{opts}"
+              "#{envs} script/docker/turnip_lightning #{args} #{allocator.stringify_node_tests}"
             else
               puts "'#{lightning_path}' directory not found in the app directory. Unable to start lightning."
               exit(1)
