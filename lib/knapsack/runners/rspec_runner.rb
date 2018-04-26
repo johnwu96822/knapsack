@@ -35,9 +35,9 @@ module Knapsack
             path = File.expand_path("../../plugins/rake-runner/rb", Dir.pwd)
             if ENV['ENABLE_LIGHTNING'] == 'true'
               envs = "TEST_ENV_NUM=#{max_process_count} #{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)}"
-              "#{envs} beluga turnip_lightning #{args} #{allocator.stringify_node_tests}"
+              "#{envs} beluga -X=--name -X=beluga_#{ENV['BUILD_NUMBER']} turnip_lightning #{args} #{allocator.stringify_node_tests}"
             else
-              "#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} beluga turnip #{args} #{allocator.stringify_node_tests}"
+              "#{"TC_PLUGIN_PATH=#{path}" if Dir.exists?(path)} beluga -X='--name' -X=beluga_#{ENV['BUILD_NUMBER']} turnip #{args} #{allocator.stringify_node_tests}"
             end
           elsif ENV['ENABLE_LIGHTNING'] == 'true' && ENV['JS_DRIVER'] == 'selenium-chrome'
             lightning_path = "devscripts/teamcity/ci-scripts/lib/lightning"
